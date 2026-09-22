@@ -151,7 +151,16 @@ function FormField({
       helperText={helperText}
       intent={intent}
     >
-      {renderInput(field, inputId, value, intent, onChange, onKeyDown, autoFocus)}
+      {renderInput(
+        field,
+        inputId,
+        value,
+        intent,
+        onChange,
+        onKeyDown,
+        autoFocus,
+        t("operatorDialog.form.noChoice"),
+      )}
     </FormGroup>
   );
 }
@@ -164,6 +173,7 @@ function renderInput(
   onChange: (value: string) => void,
   onKeyDown: (event: React.KeyboardEvent) => void,
   autoFocus: boolean,
+  noChoiceLabel: string,
 ): JSX.Element {
   const text = typeof value === "string" ? value : "";
 
@@ -176,7 +186,7 @@ function renderInput(
         id={inputId}
         value={text}
         options={[
-          ...(canBeEmpty ? [{ value: "", label: "" }] : []),
+          ...(canBeEmpty ? [{ value: "", label: noChoiceLabel }] : []),
           ...field.options.map((option) => ({ value: option, label: option })),
         ]}
         onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>

@@ -187,3 +187,72 @@ describe("StartConfirmationDialog with a form widget", () => {
     });
   });
 });
+
+describe("StartConfirmationDialog with a choice that has no default", () => {
+  const renderChoiceDialog = () =>
+    render(
+      <I18nextProvider i18n={i18n}>
+        <StartConfirmationDialog
+          title_bar="Scan"
+          dialog_text="Pick a speed."
+          widget_type={WidgetType.Form}
+          widget_info={{
+            fields: [
+              {
+                type: "choice" as const,
+                name: "speed",
+                label: "Scan speed",
+                options: ["slow", "fast"],
+                default: null,
+                required: true,
+                hint: null,
+              },
+            ],
+          }}
+          is_visible={true}
+          id="dlg-form-choice"
+          font_size={14}
+          pass_fail={false}
+        />
+      </I18nextProvider>,
+    );
+
+  test(`given a required choice without a default,
+ when the dialog opens,
+ then the drop-down starts on a translated "choose" entry, not on the first option`, () => {
+    renderChoiceDialog();
+
+    const select = screen.getByLabelText("Scan speed");
+    expect(select).toHaveValue("");
+    expect(screen.getByRole("option", { name: "— choose —" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "slow" })).toBeTruthy();
+  });
+
+  test(`given the "choose" entry left in place,
+ when the operator confirms,
+ then the choice is reported as required and nothing is sent`, () => {
+    renderChoiceDialog();
+
+    fireEvent.click(screen.getByText("Confirm"));
+
+    expect(screen.getByText("This field is required")).toBeTruthy();
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  test(`given an option picked,
+ when the operator confirms,
+ then the "choose" entry is gone and the option is sent`, () => {
+    renderChoiceDialog();
+
+    fireEvent.change(screen.getByLabelText("Scan speed"), {
+      target: { value: "fast" },
+    });
+    fireEvent.click(screen.getByText("Confirm"));
+
+    expect(screen.queryByRole("option", { name: "— choose —" })).toBeNull();
+    expect(postMock).toHaveBeenCalledWith("/api/confirm_dialog_box", {
+      result: "confirm",
+      data: { speed: "fast" },
+    });
+  });
+});
