@@ -7,15 +7,15 @@ import contextlib
 import json
 import logging
 import os
-import re
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Final
-from urllib.parse import unquote
 
 from fastapi import FastAPI, Query, Request
+
 from jig.common.config import ConfigManager, StorageType
+from jig.jig_panel.dialog_answer import decode_dialog_answer
 from jig.jig_panel.static_files import SpaStaticFiles
 from jig.jig_panel.storage_status import build_storage_status
 from jig.pytest_jig.pytest_wrapper import PyTestWrapper
@@ -268,7 +268,9 @@ def confirm_dialog_box(dbx_data: dict) -> dict:
     """Confirm dialog box with unified JSON structure.
 
     Args:
-        dbx_data: dict with 'result' (pass/fail/confirm) and 'data' (widget data)
+        dbx_data: dict with 'result' (pass/fail/confirm) and 'data' (widget data).
+            The data is a percent-encoded string for the single-value widgets
+            and a JSON object for a form, whose values need no decoding.
 
     Returns:
         dict[str, RunStatus]: run status
@@ -278,23 +280,13 @@ def confirm_dialog_box(dbx_data: dict) -> dict:
     STATUS_KEY = "status"  # noqa: N806
     EMPTY_STRING = ""  # noqa: N806
 
-    HEX_BASE = 16  # noqa: N806
-    HEX_PATTERN = r"%([0-9a-fA-F]{2})"  # noqa: N806
-
     result = dbx_data.get(RESULT_KEY, EMPTY_STRING)
     widget_data = dbx_data.get(DATA_KEY, EMPTY_STRING)
-
-    unquoted_string = unquote(unquote(widget_data))
-    decoded_string = re.sub(
-        HEX_PATTERN,
-        lambda match: chr(int(match.group(1), HEX_BASE)),
-        unquoted_string,
-    )
 
     # Create JSON structure for all dialog types
     dialog_result = {
         RESULT_KEY: result,
-        DATA_KEY: decoded_string,
+        DATA_KEY: decode_dialog_answer(widget_data),
     }
 
     # Convert to JSON string for transmission

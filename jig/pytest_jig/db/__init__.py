@@ -8,6 +8,7 @@ from jig.pytest_jig.db.stand_type import (
     Chart,
     Instrument,
     NumericMeasurement,
+    SeriesStyle,
     StringMeasurement,
     SubUnit,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "ResultRunStore",
     "ResultStateStore",
     "RunStore",
+    "SeriesStyle",
     "StateStore",
     "StringMeasurement",
     "SubUnit",

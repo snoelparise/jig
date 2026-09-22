@@ -108,7 +108,15 @@
     "notificationDesc": "窗口已关闭。测试已停止。",
     "numericInputError": "请输入数字",
     "radioButtonError": "请选择一个选项",
-    "checkboxError": "请至少选择一个选项"
+    "checkboxError": "请至少选择一个选项",
+    "form": {
+      "required": "此字段为必填项",
+      "notANumber": "请输入数字",
+      "belowMinimum": "不得小于 {{minimum}}",
+      "aboveMaximum": "不得大于 {{maximum}}",
+      "optional": "（可选）",
+      "noChoice": "— 请选择 —"
+    }
   },
   "suiteList": {
     "loadingTests": "正在加载测试... 🤔",

@@ -633,6 +633,7 @@ The type of the return value depends on the widget type:
 - RADIOBUTTON: str.
 - CHECKBOX: List(str).
 - MULTISTEP: bool.
+- FORM: dict, one converted value per field name (see [FormWidget](#formwidget)).
 
 **Raises**
 
@@ -737,7 +738,8 @@ Widget list:
 - Numeric input, [NumericInputWidget](#numericinputwidget);
 - Radiobutton, [RadiobuttonWidget](#radiobuttonwidget);
 - Checkbox, [CheckboxWidget](#checkboxwidget);
-- Multistep, [MultistepWidget](#multistepwidget).
+- Multistep, [MultistepWidget](#multistepwidget);
+- Form, [FormWidget](#formwidget).
 
 **Example:**
 
@@ -866,6 +868,116 @@ Further information can be found in section
     dbx = DialogBox(dialog_text="Follow the steps and click Confirm", widget=MultistepWidget(steps))
     response = run_dialog_box(dbx)
 ```
+
+#### FormWidget
+
+The class is used to configure a form in a [dialog box](#dialogbox): several
+fields answered at once, each prefilled with its default. Further information
+can be found in section [form](./jig_panel.md/#form).
+
+Use it where a test would otherwise chain one dialog per value. The operator
+sees every setting on one screen, keeps the defaults by confirming as is, and
+is told under the field concerned when a value is refused.
+
+The widget returns a `dict` when using [run_dialog_box](#run_dialog_box):
+one entry per field, keyed by field name, each converted by the field that
+declared it. With `pass_fail=True`, that dictionary is the `data` of the
+returned `PassFailDialog`.
+
+**Arguments:**
+
+- `fields` *(Sequence[[NumberField](#numberfield) | [TextField](#textfield) | [ChoiceField](#choicefield) | [BooleanField](#booleanfield)])*: the fields, in the order they are shown.
+
+**Raises:**
+
+- `ValueError`: if there is no field, or two fields share a name.
+- `FormAnswerError` (a `ValueError`): from `run_dialog_box`, if the panel
+  answers a field with a value the field does not accept. The panel enforces
+  the same rules while typing, so this marks a panel out of step with the
+  test rather than an operator mistake.
+
+**Example:**
+
+```python
+    dbx = DialogBox(
+        title_bar="Galvo burn",
+        dialog_text="Set the burn, then confirm.",
+        widget=FormWidget(
+            [
+                NumberField(
+                    name="power_percent",
+                    label="Laser power",
+                    default=20.0,
+                    unit="%",
+                    minimum=0.1,
+                    maximum=100.0,
+                ),
+                TextField(name="calibration_id", label="Power calibration", default="7"),
+                ChoiceField(name="speed", label="Speed", options=["slow", "fast"], default="fast"),
+                BooleanField(name="verify", label="Verify after the burn", default=True),
+            ]
+        ),
+    )
+    answer = run_dialog_box(dbx)
+    power_percent: float = answer["power_percent"]
+    calibration_id: str = answer["calibration_id"]
+```
+
+#### NumberField
+
+A number, typed into a numeric input of a [form](#formwidget). Converted to
+`float`, or `None` when an optional field is left empty.
+
+**Arguments:**
+
+- `name` *(str)*: key of the value in the answer.
+- `label` *(str)*: text shown next to the input.
+- `default` *(float | None)*: value the input is prefilled with.
+- `unit` *(str | None)*: unit shown after the input.
+- `minimum` *(float | None)*: smallest accepted value.
+- `maximum` *(float | None)*: largest accepted value.
+- `required` *(bool=True)*: whether an empty input is refused.
+- `hint` *(str | None)*: help text shown under the input.
+
+#### TextField
+
+A line of text in a [form](#formwidget). Converted to a stripped `str`.
+
+**Arguments:**
+
+- `name` *(str)*: key of the value in the answer.
+- `label` *(str)*: text shown next to the input.
+- `default` *(str="")*: text the input is prefilled with.
+- `placeholder` *(str | None)*: text shown while the input is empty.
+- `required` *(bool=True)*: whether an empty input is refused.
+- `hint` *(str | None)*: help text shown under the input.
+
+#### ChoiceField
+
+One option out of a list, shown as a drop-down in a [form](#formwidget).
+Converted to the chosen option, or `None` when an optional choice is left
+unmade.
+
+**Arguments:**
+
+- `name` *(str)*: key of the value in the answer.
+- `label` *(str)*: text shown next to the input.
+- `options` *(Sequence[str])*: the values to choose from.
+- `default` *(str | None)*: option selected when the form opens.
+- `required` *(bool=True)*: whether leaving the choice unmade is refused.
+- `hint` *(str | None)*: help text shown under the input.
+
+#### BooleanField
+
+A yes/no switch, shown as a checkbox in a [form](#formwidget). Converted to
+`bool`.
+
+**Arguments:**
+
+- `name` *(str)*: key of the value in the answer.
+- `label` *(str)*: text shown next to the checkbox.
+- `default` *(bool=False)*: whether the checkbox starts ticked.
+- `hint` *(str | None)*: help text shown under the checkbox.
 
 #### ImageComponent
 
@@ -1207,6 +1319,12 @@ It is used with the [set_case_chart](#set_case_chart) function.
 
 A `ValidationError` will result if the lengths of x_data, y_data, and marker_name differ.
 
+A series is drawn as a line with markers unless it carries a
+[SeriesStyle](#seriesstyle). A `None` inside a data series is a gap: the line
+is broken there, so one series can hold several disjoint segments (the
+vectors of a distortion map, for instance). A gap must be `None` in both
+`x_data` and `y_data`, and a series needs at least one point.
+
 **Arguments:**
 
 - `type` *([ChartType](#charttype))*: chart type, LINE by default.
@@ -1214,13 +1332,21 @@ A `ValidationError` will result if the lengths of x_data, y_data, and marker_nam
 - `x_label` *(str | None)*: x label name.
 - `y_label` *(str | None)*: y label name.
 - `marker_name` *(list[str | None])*: data series marker name.
-- `x_data` *(list[list[int | float]])*: x data series. Each data series is its own list.
-- `y_data` *(list[list[int | float]])*: y data series. Each data series is its own list.
+- `x_data` *(list[list[int | float | None]])*: x data series. Each data series is its own list.
+- `y_data` *(list[list[int | float | None]])*: y data series. Each data series is its own list.
+- `series_style` *(list[[SeriesStyle](#seriesstyle) | None])*: how each series is
+  drawn. Either empty, or one entry per series with `None` for a series drawn
+  with the defaults.
+- `equal_aspect` *(bool=False)*: draw one unit of X as long as one unit of Y.
+  For charts of positions, where a square field must look square, rather than
+  of a quantity over another.
 
 **Functions:**
 
-- `add_series` *(x_data: list[int | float], y_data:* 
-  *list[int | float], marker_name: str | None = None)*: add data series to current `Chart`. 
+- `add_series` *(x_data: list[int | float | None], y_data:*
+  *list[int | float | None], marker_name: str | None = None,*
+  *style: [SeriesStyle](#seriesstyle) | None = None)*: add data series to current `Chart`.
+- `to_dict` *()*: the chart as stored in the run document, plain JSON.
 
 **Example:**
 
@@ -1238,6 +1364,66 @@ def test_chart():
     chart.add_series(x_data=[0, 3], y_data=[2, 4], marker_name="A")
     jig.set_case_chart(chart)
 ```
+
+**Example of a styled chart of positions:**
+
+```python
+def test_landing_map():
+    chart = jig.Chart(
+        title="Where the shots landed",
+        x_label="X (um)",
+        y_label="Y (um)",
+        equal_aspect=True,
+    )
+    chart.add_series(
+        x_data=[-500, 500, 500, -500, -500],
+        y_data=[-400, -400, 400, 400, -400],
+        marker_name="Screen",
+        style=jig.SeriesStyle(mode=jig.SeriesMode.LINES, line_dash=jig.LineDash.DASH, color="#888888"),
+    )
+    chart.add_series(
+        x_data=[0, 100, 0, 100],
+        y_data=[0, 0, 100, 100],
+        marker_name="Aimed",
+        style=jig.SeriesStyle(mode=jig.SeriesMode.MARKERS, marker_symbol=jig.MarkerSymbol.CIRCLE_OPEN, color="#888888"),
+    )
+    chart.add_series(
+        x_data=[1.0, 102.5, -0.5, 103.0],
+        y_data=[0.5, 1.0, 101.0, 104.0],
+        marker_name="Landed",
+        style=jig.SeriesStyle(
+            mode=jig.SeriesMode.MARKERS,
+            color_values=[1.1, 2.7, 1.1, 5.0],
+            colorbar_title="Radial error (um)",
+            hover_text=["aimed (0, 0)", "aimed (100, 0)", "aimed (0, 100)", "aimed (100, 100)"],
+        ),
+    )
+    jig.set_case_chart(chart)
+```
+
+### SeriesStyle
+
+How one series of a [Chart](#chart) is drawn. Every argument is optional:
+an argument left unset keeps the panel's default, so a style only has to say
+what differs from a plain line with markers.
+
+A `ValidationError` will result if `color` and `color_values` are both set,
+if `colorbar_title` is set without `color_values`, or if `hover_text` or
+`color_values` do not have one entry per point of their series.
+
+**Arguments:**
+
+- `mode` *([SeriesMode](#seriesmode) | None)*: lines, markers, or both (the default).
+- `color` *(str | None)*: one CSS colour for the whole series, e.g. `"#c02020"`.
+- `marker_symbol` *([MarkerSymbol](#markersymbol) | None)*: marker shape.
+- `marker_size` *(int | None)*: marker size in pixels.
+- `line_dash` *([LineDash](#linedash) | None)*: dash pattern of the line.
+- `line_width` *(float | None)*: line width in pixels.
+- `opacity` *(float | None)*: 0 (invisible) to 1 (opaque).
+- `hover_text` *(list[str] | None)*: one label per point, shown with the series name when the point is hovered.
+- `color_values` *(list[int | float] | None)*: one value per point. The markers are coloured on a scale and a colour bar is drawn.
+- `colorbar_title` *(str | None)*: title of that colour bar.
+- `show_legend` *(bool=True)*: whether the series appears in the legend.
 
 ### ErrorCode
 
@@ -1292,6 +1478,35 @@ This is a chart type for the [Chart](#chart) class.
 - *LINE_LOG_X*: line_log_x.
 - *LINE_LOG_Y*: line_log_y.
 - *LOG_X_Y*: log_x_y.
+
+### SeriesMode
+
+How the points of a series are drawn, for [SeriesStyle](#seriesstyle).
+
+**Values:**
+
+- *LINES*: a line through the points, no markers.
+- *MARKERS*: a marker on each point, no line.
+- *LINES_MARKERS*: both, the default of an unstyled series.
+
+### LineDash
+
+Dash pattern of a series line, for [SeriesStyle](#seriesstyle).
+
+**Values:**
+
+- *SOLID*, *DASH*, *DOT*, *DASHDOT*.
+
+### MarkerSymbol
+
+Shape of a series marker, for [SeriesStyle](#seriesstyle). The open shapes
+are outlines only, which lets an aimed position show through a landing drawn
+over it.
+
+**Values:**
+
+- *CIRCLE*, *CIRCLE_OPEN*, *SQUARE*, *SQUARE_OPEN*, *DIAMOND*, *DIAMOND_OPEN*,
+  *CROSS*, *X*, *TRIANGLE_UP*, *TRIANGLE_DOWN*, *STAR*.
 
 ## Fixture
 

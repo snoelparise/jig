@@ -409,6 +409,20 @@ Allows steps with text and image.
         <img src="https://raw.githubusercontent.com/everypinio/jig/main/docs/img/dialog_box/dialog_box_with_step_with_pass_fail.png" alt="dialog_box_with_step_with_pass_fail">
     </h1>
 
+#### form
+
+Contains several fields and a `confirm` button, so a set of settings is
+answered in one dialog instead of one dialog per value. See
+[FormWidget](./pytest_jig.md#formwidget).
+
+* Every field opens prefilled with its default; confirming as is keeps the defaults.
+* A number field shows its unit after the input and refuses a value outside its range.
+* A text field may carry a placeholder; a choice is a drop-down; a yes/no switch is a checkbox.
+* A field that may be left empty is marked *(optional)*; a required one left empty is refused.
+* A refused value is reported under its own field, and the message goes away as soon as the field is edited.
+* `Enter` in a field confirms the form (or reaches the `Pass` button when pass/fail buttons are shown).
+* Returns a dictionary with one converted value per field.
+
 ### Operator message
 
 The messages to the operator are similar to [dialog boxes](#dialog-box),
@@ -446,6 +460,15 @@ Charts support the following features:
 * Zooming capabilities
 * Logarithmic scales for both X and Y axes
 * Collapsible/expandable view
+* A style per series: lines, markers or both, colour, marker shape and size,
+  dash pattern, opacity, legend visibility (see [SeriesStyle](./pytest_jig.md#seriesstyle))
+* Markers coloured by a value per point, with a colour bar
+* A hover label per point
+* Gaps in a series, to draw disjoint segments as one series
+* Equal aspect ratio, for charts of positions
+
+A series without a style is drawn as before: a line with markers, coloured and
+shaped by its position in the chart.
 
 #### Basic line chart
 

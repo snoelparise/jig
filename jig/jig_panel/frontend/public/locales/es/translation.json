@@ -108,7 +108,15 @@
     "notificationDesc": "La ventana fue cerrada. Pruebas detenidas.",
     "numericInputError": "Por favor ingrese un número",
     "radioButtonError": "Por favor seleccione una opción",
-    "checkboxError": "Por favor seleccione al menos una opción"
+    "checkboxError": "Por favor seleccione al menos una opción",
+    "form": {
+      "required": "Este campo es obligatorio",
+      "notANumber": "Ingrese un número",
+      "belowMinimum": "Debe ser al menos {{minimum}}",
+      "aboveMaximum": "Debe ser como máximo {{maximum}}",
+      "optional": "(opcional)",
+      "noChoice": "— elegir —"
+    }
   },
   "suiteList": {
     "loadingTests": "Cargando pruebas... 🤔",

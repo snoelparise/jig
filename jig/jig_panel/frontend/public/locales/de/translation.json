@@ -108,7 +108,15 @@
     "notificationDesc": "Das Fenster wurde geschlossen. Tests gestoppt.",
     "numericInputError": "Bitte geben Sie eine Zahl ein",
     "radioButtonError": "Bitte wählen Sie eine Option",
-    "checkboxError": "Bitte wählen Sie mindestens eine Option"
+    "checkboxError": "Bitte wählen Sie mindestens eine Option",
+    "form": {
+      "required": "Dieses Feld ist erforderlich",
+      "notANumber": "Geben Sie eine Zahl ein",
+      "belowMinimum": "Muss mindestens {{minimum}} sein",
+      "aboveMaximum": "Darf höchstens {{maximum}} sein",
+      "optional": "(optional)",
+      "noChoice": "— auswählen —"
+    }
   },
   "suiteList": {
     "loadingTests": "Tests werden geladen... 🤔",

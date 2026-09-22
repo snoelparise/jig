@@ -6,20 +6,24 @@ import { Dialog, Button, Classes } from "@blueprintjs/core";
 import Plot from "react-plotly.js";
 import { withTranslation, WithTranslation } from "react-i18next";
 
+import {
+  equalAspectAxis,
+  toPlotlyTrace,
+  type ChartSeries,
+} from "@/lib/chartSeries";
+
 /**
  * Interface representing chart data structure
  * @interface ChartData
- * @property {number[]} x_data - Array of x-axis data points
- * @property {number[]} y_data - Array of y-axis data points
+ * @property {(number | null)[]} x_data - Array of x-axis data points, null for a gap
+ * @property {(number | null)[]} y_data - Array of y-axis data points, null for a gap
  * @property {string} marker_name - Name/label for the data series
+ * @property {SeriesStyle | null} [style] - How the series is drawn, defaults when absent
  * @property {string} [x_label] - Optional label for x-axis
  * @property {string} [y_label] - Optional label for y-axis
  * @property {string} [chart_title] - Optional title for the chart
  */
-interface ChartData {
-  x_data: number[];
-  y_data: number[];
-  marker_name: string;
+interface ChartData extends ChartSeries {
   x_label?: string;
   y_label?: string;
   chart_title?: string;
@@ -37,6 +41,7 @@ interface ChartData {
  * @property {string} [yLabel] - Optional y-axis label (overrides data label)
  * @property {string} [chartType] - Type of chart visualization
  * @property {number} [containerWidth] - Optional fixed container width
+ * @property {boolean} [equalAspect] - Draw one unit of X as long as one unit of Y
  */
 interface ChartComponentProps extends WithTranslation {
   charts: ChartData[];
@@ -47,6 +52,7 @@ interface ChartComponentProps extends WithTranslation {
   yLabel?: string;
   chartType?: string;
   containerWidth?: number;
+  equalAspect?: boolean;
 }
 
 /**
@@ -153,6 +159,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
   yLabel,
   chartType = "line",
   containerWidth,
+  equalAspect = false,
   t,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -216,28 +223,21 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
     yLabel || (charts.length > 0 ? charts[0].y_label : undefined);
 
   /**
-   * Transforms chart data into Plotly-compatible format
+   * Transforms chart data into Plotly-compatible format. An unstyled series
+   * takes the colour and symbol of its position; a style overrides only what
+   * it sets.
    * @type {Array<Object>}
    */
-  const plotData = charts.map((chart, index) => ({
-    x: chart.x_data,
-    y: chart.y_data,
-    type: "scatter" as const,
-    mode: "lines+markers",
-    name: chart.marker_name,
-    marker: {
+  const plotData = charts.map((chart, index) =>
+    toPlotlyTrace(chart, {
       color: `hsl(${(index * 360) / charts.length}, 70%, 50%)`,
+      markerLineColor: `hsl(${(index * 360) / charts.length}, 70%, 30%)`,
       symbol: MARKER_SYMBOLS[index % MARKER_SYMBOLS.length],
-      size: CHART_CONSTANTS.MARKER.SIZE,
-      line: {
-        width: CHART_CONSTANTS.MARKER.LINE_WIDTH,
-        color: `hsl(${(index * 360) / charts.length}, 70%, 30%)`,
-      },
-    },
-    line: {
-      width: CHART_CONSTANTS.LINE_WIDTH,
-    },
-  }));
+      markerSize: CHART_CONSTANTS.MARKER.SIZE,
+      markerLineWidth: CHART_CONSTANTS.MARKER.LINE_WIDTH,
+      lineWidth: CHART_CONSTANTS.LINE_WIDTH,
+    }),
+  );
 
   /**
    * Layout configuration for the main chart
@@ -286,6 +286,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
       showgrid: true,
       gridcolor: CHART_CONSTANTS.COLORS.GRID,
       zeroline: false,
+      ...equalAspectAxis(equalAspect),
     },
     showlegend: true,
     legend: {

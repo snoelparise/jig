@@ -12,7 +12,10 @@ from jig.pytest_jig.utils.const import (
     ChartType,
     ComparisonOperation as CompOp,
     Group,
+    LineDash,
+    MarkerSymbol,
     MeasurementType,
+    SeriesMode,
     TestStatus as Status,
 )
 
@@ -176,8 +179,35 @@ class StringMeasurement(IBaseMeasurement):
     comparison_value: str | None = Field(default=None)
 
 
+class SeriesStyle(BaseModel):
+    """How one chart series is drawn.
+
+    Every field is optional: a field left unset keeps the panel's default,
+    so a style only has to say what differs from a plain line with markers.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: SeriesMode | None = Field(default=None)
+    color: str | None = Field(default=None)
+    marker_symbol: MarkerSymbol | None = Field(default=None)
+    marker_size: int | None = Field(default=None, ge=1)
+    line_dash: LineDash | None = Field(default=None)
+    line_width: float | None = Field(default=None, gt=0)
+    opacity: float | None = Field(default=None, ge=0.0, le=1.0)
+    hover_text: list[str] | None = Field(default=None)
+    color_values: list[int | float] | None = Field(default=None)
+    colorbar_title: str | None = Field(default=None)
+    show_legend: bool = Field(default=True)
+
+
 class Chart(BaseModel):
-    """Chart description."""
+    """Chart description.
+
+    A `None` inside a data series breaks the line there, so one series can
+    hold several disjoint segments. `series_style` is either empty or one
+    entry per series, `None` for a series drawn with the defaults.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -186,8 +216,10 @@ class Chart(BaseModel):
     x_label: str | None = Field(default=None)
     y_label: str | None = Field(default=None)
     marker_name: list[str | None] = Field(default=[])
-    x_data: list[list[int | float]] = Field(default_factory=lambda: [])  # noqa: PIE807
-    y_data: list[list[int | float]] = Field(default_factory=lambda: [])  # noqa: PIE807
+    x_data: list[list[int | float | None]] = Field(default_factory=lambda: [])  # noqa: PIE807
+    y_data: list[list[int | float | None]] = Field(default_factory=lambda: [])  # noqa: PIE807
+    series_style: list[SeriesStyle | None] = Field(default_factory=lambda: [])  # noqa: PIE807
+    equal_aspect: bool = Field(default=False)
 
 
 class OperatorData(BaseModel):

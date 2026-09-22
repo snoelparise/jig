@@ -45,6 +45,26 @@ class AppStatus(BaseModel):
     unknown: str
 
 
+class OperatorDialogForm(BaseModel):
+    """Messages of the form widget.
+
+    Attributes:
+        required (str): a required field was left empty.
+        notANumber (str): a number field holds something else.
+        belowMinimum (str): a number is under the field minimum.
+        aboveMaximum (str): a number is over the field maximum.
+        optional (str): marks a field that may be left empty.
+        noChoice (str): the empty entry of a choice not made yet.
+    """
+
+    required: str
+    notANumber: str
+    belowMinimum: str
+    aboveMaximum: str
+    optional: str
+    noChoice: str
+
+
 class OperatorDialog(BaseModel):
     """A class representing an operator dialog.
 
@@ -77,6 +97,7 @@ class OperatorDialog(BaseModel):
     numericInputError: str
     radioButtonError: str
     checkboxError: str
+    form: OperatorDialogForm
 
 
 class Button(BaseModel):

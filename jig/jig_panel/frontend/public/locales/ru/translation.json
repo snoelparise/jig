@@ -108,7 +108,15 @@
     "notificationDesc": "Окно было закрыто. Тесты остановлены.",
     "numericInputError": "Пожалуйста, введите число",
     "radioButtonError": "Пожалуйста, выберите один вариант",
-    "checkboxError": "Пожалуйста, выберите хотя бы один вариант"
+    "checkboxError": "Пожалуйста, выберите хотя бы один вариант",
+    "form": {
+      "required": "Это поле обязательно",
+      "notANumber": "Введите число",
+      "belowMinimum": "Должно быть не меньше {{minimum}}",
+      "aboveMaximum": "Должно быть не больше {{maximum}}",
+      "optional": "(необязательно)",
+      "noChoice": "— выберите —"
+    }
   },
   "suiteList": {
     "loadingTests": "Загрузка тестов... 🤔",

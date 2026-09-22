@@ -108,7 +108,15 @@
     "notificationDesc": "ウィンドウが閉じられました。テストを停止しました。",
     "numericInputError": "数字を入力してください",
     "radioButtonError": "いずれかのオプションを選択してください",
-    "checkboxError": "少なくとも1つのオプションを選択してください"
+    "checkboxError": "少なくとも1つのオプションを選択してください",
+    "form": {
+      "required": "この項目は必須です",
+      "notANumber": "数値を入力してください",
+      "belowMinimum": "{{minimum}}以上にしてください",
+      "aboveMaximum": "{{maximum}}以下にしてください",
+      "optional": "（任意）",
+      "noChoice": "— 選択 —"
+    }
   },
   "suiteList": {
     "loadingTests": "テストを読み込み中... 🤔",

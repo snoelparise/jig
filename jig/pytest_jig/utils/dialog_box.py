@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import json
 from abc import ABC, abstractmethod
 from ast import literal_eval
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
@@ -12,6 +14,7 @@ from typing import Any, Final
 from uuid import uuid4
 
 from jig.pytest_jig.utils.exception import ImageError, WidgetInfoError
+from jig.pytest_jig.utils.form_fields import FormAnswerError, FormField
 
 
 class WidgetType(Enum):
@@ -24,6 +27,7 @@ class WidgetType(Enum):
     CHECKBOX = "checkbox"
     STEP = "step"
     MULTISTEP = "multistep"
+    FORM = "form"
 
 
 class IWidget(ABC):
@@ -44,6 +48,17 @@ class IWidget(ABC):
             Any: Widget data in the correct format
         """
         raise NotImplementedError
+
+    def to_dict(self) -> dict:
+        """Convert the widget to the dictionary stored in the run document.
+
+        Only `type` and `info` reach the panel; a widget may keep other
+        attributes for its own use without them being serialised.
+
+        Returns:
+            dict: Widget dictionary
+        """
+        return {"type": self.type, "info": deepcopy(self.info)}
 
 
 class BaseWidget(IWidget):
@@ -259,6 +274,72 @@ class MultistepWidget(IWidget):
         return True
 
 
+class FormWidget(IWidget):
+    """Several fields answered in one dialog, each prefilled with its default.
+
+    The answer is a dictionary keyed by field name, with each value converted
+    by the field that declared it: a float for a `NumberField`, a string for a
+    `TextField` or `ChoiceField`, a bool for a `BooleanField`.
+
+    Args:
+        fields (Sequence[FormField]): the fields, in the order they are shown.
+
+    Raises:
+        ValueError: If no field is given or two fields share a name.
+    """
+
+    def __init__(self, fields: Sequence[FormField]) -> None:
+        super().__init__(WidgetType.FORM)
+        if not fields:
+            msg = "FormWidget must have at least one field"
+            raise ValueError(msg)
+        names = [form_field.name for form_field in fields]
+        if len(names) != len(set(names)):
+            msg = "FormWidget field names must be unique"
+            raise ValueError(msg)
+        self.fields: tuple[FormField, ...] = tuple(fields)
+        self.info["fields"] = [form_field.to_dict() for form_field in fields]
+
+    def convert_data(
+        self,
+        input_data: str | Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Get the form answer, one converted value per field.
+
+        Args:
+            input_data (str | Mapping[str, Any] | None): the answer as the
+                panel sent it, a JSON object or its serialised form.
+
+        Returns:
+            dict[str, Any]: the value of every field, keyed by field name.
+
+        Raises:
+            FormAnswerError: If the answer is not a JSON object, or a field
+                refuses the value it was given.
+        """
+        answers = _form_answers(input_data)
+        return {
+            form_field.name: form_field.convert(answers.get(form_field.name))
+            for form_field in self.fields
+        }
+
+
+def _form_answers(input_data: str | Mapping[str, Any] | None) -> dict[str, Any]:
+    if input_data is None or input_data == "":
+        return {}
+    if isinstance(input_data, Mapping):
+        return dict(input_data)
+    try:
+        parsed = json.loads(input_data)
+    except json.JSONDecodeError as error:
+        msg = f"A form answer must be a JSON object, got {input_data!r}"
+        raise FormAnswerError(msg) from error
+    if not isinstance(parsed, dict):
+        msg = f"A form answer must be a JSON object, got {input_data!r}"
+        raise FormAnswerError(msg)
+    return parsed
+
+
 class ImageComponent:
     """Image component."""
 
@@ -403,7 +484,7 @@ class DialogBox:
             dict: DialogBox dictionary.
         """
         dbx_dict = deepcopy(self.__dict__)
-        dbx_dict["widget"] = deepcopy(self.widget.__dict__)
+        dbx_dict["widget"] = self.widget.to_dict()
         if self.image:
             dbx_dict["image"] = deepcopy(self.image.__dict__)
         if self.html:

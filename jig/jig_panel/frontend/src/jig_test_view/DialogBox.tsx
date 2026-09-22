@@ -25,6 +25,17 @@ import {
   IMAGE_SCALE_FACTOR,
   calculateDialogDimensions,
 } from "./DialogUtils";
+import { FormWidgetComponent } from "./FormWidget";
+import {
+  formAnswer,
+  initialFormValues,
+  isFormFieldList,
+  validateFormValues,
+  type FormAnswer,
+  type FormErrors,
+  type FormFieldInfo,
+  type FormValues,
+} from "@/lib/formWidget";
 import { useTranslation } from "react-i18next";
 
 const HEX_BASE = 16;
@@ -33,10 +44,13 @@ const screenHeight = window.screen.height;
 const PHONE_SCALE_FACTOR = 0.8;
 const MONITOR_SCALE_FACTOR = 0.6;
 
+/** What a widget sends back: percent-encoded text, or the object of a form. */
+type WidgetData = string | FormAnswer;
+
 interface Props {
   title_bar: string;
   dialog_text: string;
-  onConfirm?: (inputText: string) => void;
+  onConfirm?: (data: WidgetData) => void;
   width?: string;
   widget_type?: WidgetType;
   widget_info?: WidgetInfo;
@@ -62,6 +76,7 @@ export enum WidgetType {
   RadioButton = "radiobutton",
   Checkbox = "checkbox",
   Multistep = "multistep",
+  Form = "form",
 }
 
 interface ImageComponent {
@@ -96,10 +111,27 @@ interface Step {
 }
 
 interface WidgetInfo {
-  fields?: string[];
+  /** Option labels of a radio button or checkbox, or the fields of a form. */
+  fields?: string[] | FormFieldInfo[];
   text?: string;
   steps?: Step[];
 }
+
+/**
+ * The option labels of a radio button or checkbox widget.
+ * @param {WidgetInfo | undefined} info - The widget description.
+ * @returns {string[]} The labels, none for other widgets.
+ */
+const optionLabels = (info: WidgetInfo | undefined): string[] =>
+  info?.fields && !isFormFieldList(info.fields) ? info.fields : [];
+
+/**
+ * The fields of a form widget.
+ * @param {WidgetInfo | undefined} info - The widget description.
+ * @returns {FormFieldInfo[]} The fields, none for other widgets.
+ */
+const formFields = (info: WidgetInfo | undefined): FormFieldInfo[] =>
+  info?.fields && isFormFieldList(info.fields) ? info.fields : [];
 
 interface TextInputComponentProps {
   inputText: string;
@@ -353,7 +385,7 @@ const renderRadioButton = (
   onEnterPress?: () => void,
 ): JSX.Element => (
   <RadioButtonComponent
-    fields={props.widget_info?.fields ?? []}
+    fields={optionLabels(props.widget_info)}
     selectedRadioButton={selectedRadioButton}
     setSelectedRadioButton={setSelectedRadioButton}
     handleKeyDown={handleKeyDown}
@@ -379,7 +411,7 @@ const renderCheckbox = (
   onEnterPress?: () => void,
 ): JSX.Element => (
   <CheckboxComponent
-    fields={props.widget_info?.fields ?? []}
+    fields={optionLabels(props.widget_info)}
     selectedCheckboxes={selectedCheckboxes}
     setSelectedCheckboxes={setSelectedCheckboxes}
     handleKeyDown={handleKeyDown}
@@ -562,6 +594,11 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
   const [inputText, setInputText] = useState("");
   const [selectedRadioButton, setSelectedRadioButton] = useState("");
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
+  const fields = formFields(props.widget_info);
+  const [formValues, setFormValues] = useState<FormValues>(() =>
+    initialFormValues(fields),
+  );
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [imageDimensions, setImageDimensions] = useState(
     BASE_DIALOG_DIMENSIONS,
   );
@@ -586,6 +623,7 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
     WidgetType.NumericInput,
     WidgetType.RadioButton,
     WidgetType.Checkbox,
+    WidgetType.Form,
   ].includes(widgetType);
 
   /**
@@ -617,38 +655,37 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
   /**
    * Prepares widget data based on the current widget type and state.
    *
-   * @returns {string} - The prepared widget data as a string.
+   * A form answers with an object: its values travel as JSON, which carries
+   * any character, so they are not percent-encoded like the text widgets.
+   *
+   * @returns {WidgetData} - The prepared widget data.
    */
-  const prepareWidgetData = (): string => {
-    let widgetData = "";
-
+  const prepareWidgetData = (): WidgetData => {
     switch (widgetType) {
       case WidgetType.TextInput:
-        widgetData = processEncodeURLComponent(inputText);
-        break;
+        return processEncodeURLComponent(inputText);
       case WidgetType.NumericInput:
-        widgetData = inputText;
-        break;
+        return inputText;
       case WidgetType.RadioButton:
-        widgetData = processEncodeURLComponent(selectedRadioButton);
-        break;
+        return processEncodeURLComponent(selectedRadioButton);
       case WidgetType.Checkbox:
-        widgetData = JSON.stringify(
+        return JSON.stringify(
           selectedCheckboxes.map((checkboxValue) =>
             processEncodeURLComponent(checkboxValue),
           ),
         );
-        break;
+      case WidgetType.Form:
+        return formAnswer(fields, formValues);
       default:
-        widgetData = "ok";
-        break;
+        return "ok";
     }
-
-    return widgetData;
   };
 
   /**
    * Validates input based on the current widget type.
+   *
+   * A form reports its errors under the fields concerned; the other widgets
+   * keep their single alert.
    *
    * @returns {boolean} - True if input is valid, false otherwise.
    */
@@ -678,11 +715,35 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
             return false;
           }
           break;
+        case WidgetType.Form: {
+          const errors = validateFormValues(fields, formValues);
+          setFormErrors(errors);
+          return Object.keys(errors).length === 0;
+        }
         default:
           break;
       }
     }
     return true;
+  };
+
+  /**
+   * Records a form field the operator changed, and clears its error so the
+   * message does not outlive the value it was about.
+   *
+   * @param {string} name - The field name.
+   * @param {string | boolean} value - The new value.
+   */
+  const handleFormFieldChange = (name: string, value: string | boolean) => {
+    setFormValues((current) => ({ ...current, [name]: value }));
+    setFormErrors((current) => {
+      if (!(name in current)) {
+        return current;
+      }
+      const remaining = { ...current };
+      delete remaining[name];
+      return remaining;
+    });
   };
 
   /**
@@ -780,7 +841,7 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
       return;
     }
 
-    if (props.widget_info?.fields) {
+    if (optionLabels(props.widget_info).length > 0) {
       handleWidgetKeyDown(key);
     }
   };
@@ -808,13 +869,10 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
    * @param {string} key - The key to search for.
    * @returns {number} The index of the field, or -1 if not found.
    */
-  const findFieldIndexByKey = (key: string): number => {
-    return (
-      props.widget_info?.fields?.findIndex((option) =>
-        option.startsWith(key),
-      ) ?? -1
+  const findFieldIndexByKey = (key: string): number =>
+    optionLabels(props.widget_info).findIndex((option) =>
+      option.startsWith(key),
     );
-  };
 
   /**
    * Handles keydown events for RadioButton widget.
@@ -822,8 +880,9 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
    * @param {number} index - The index of the selected field.
    */
   const handleRadioButtonKeyDown = (index: number) => {
-    if (props.widget_info?.fields) {
-      setSelectedRadioButton(props.widget_info.fields[index]);
+    const labels = optionLabels(props.widget_info);
+    if (labels.length > 0) {
+      setSelectedRadioButton(labels[index]);
     }
   };
 
@@ -833,8 +892,9 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
    * @param {number} index - The index of the selected field.
    */
   const handleCheckboxKeyDown = (index: number) => {
-    if (props.widget_info?.fields) {
-      const option = props.widget_info.fields[index];
+    const labels = optionLabels(props.widget_info);
+    if (labels.length > 0) {
+      const option = labels[index];
       if (selectedCheckboxes.includes(option)) {
         setSelectedCheckboxes(
           selectedCheckboxes.filter((item) => item !== option),
@@ -944,6 +1004,11 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
     setInputText("");
     setSelectedRadioButton("");
     setSelectedCheckboxes([]);
+    setFormValues(initialFormValues(formFields(props.widget_info)));
+    setFormErrors({});
+    // The widget description arrives again with every sync of the run
+    // document; only a new dialog id may discard what the operator typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.id]);
 
   useEffect(() => {
@@ -1088,6 +1153,16 @@ export function StartConfirmationDialog(props: Readonly<Props>): JSX.Element {
             maxSizeFactor,
             t,
           )}
+        {widgetType === WidgetType.Form && (
+          <FormWidgetComponent
+            fields={fields}
+            values={formValues}
+            errors={formErrors}
+            fontSize={props.font_size ?? BASE_FONT_SIZE}
+            onChange={handleFormFieldChange}
+            onEnter={props.pass_fail ? focusPassButton : handleConfirm}
+          />
+        )}
         <p> </p>
         {props.image_base64 && (
           <div className="image-container">

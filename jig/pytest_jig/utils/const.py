@@ -100,3 +100,41 @@ class ChartType(str, Enum):
     LINE_LOG_X = "line_log_x"
     LINE_LOG_Y = "line_log_y"
     LOG_X_Y = "log_x_y"
+
+
+class SeriesMode(str, Enum):
+    """How the points of a chart series are drawn."""
+
+    LINES = "lines"
+    """A line through the points, no markers."""
+
+    MARKERS = "markers"
+    """A marker on each point, no line."""
+
+    LINES_MARKERS = "lines+markers"
+    """Both, the default of a series without a style."""
+
+
+class LineDash(str, Enum):
+    """Dash pattern of a series line."""
+
+    SOLID = "solid"
+    DASH = "dash"
+    DOT = "dot"
+    DASHDOT = "dashdot"
+
+
+class MarkerSymbol(str, Enum):
+    """Shape of a series marker. The open shapes are outlines only."""
+
+    CIRCLE = "circle"
+    CIRCLE_OPEN = "circle-open"
+    SQUARE = "square"
+    SQUARE_OPEN = "square-open"
+    DIAMOND = "diamond"
+    DIAMOND_OPEN = "diamond-open"
+    CROSS = "cross"
+    X = "x"
+    TRIANGLE_UP = "triangle-up"
+    TRIANGLE_DOWN = "triangle-down"
+    STAR = "star"

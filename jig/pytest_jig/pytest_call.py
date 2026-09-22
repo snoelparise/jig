@@ -601,9 +601,7 @@ def set_case_chart(chart: Chart) -> None:
         msg = "chart"
         raise DuplicateParameterError(msg)
 
-    chart_dict = {k: v for k, v in vars(chart).items() if v is not None}
-
-    reporter.set_doc_value(key, chart_dict)
+    reporter.set_doc_value(key, chart.to_dict())
     reporter.update_db_by_doc()
 
 
@@ -630,6 +628,7 @@ def run_dialog_box(dialog_box_data: DialogBox) -> Any:  # noqa: ANN401
         - RADIOBUTTON: str.
         - CHECKBOX: list[str].
         - MULTISTEP: bool.
+        - FORM: dict[str, Any], one converted value per field name.
         - Pass/Fail widget: PassFailDialog.
 
     Raises:

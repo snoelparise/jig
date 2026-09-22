@@ -38,6 +38,7 @@ import {
   toDisplayStatus,
   toNodeDisplayStatus,
 } from "@/lib/testStatus";
+import type { SeriesStyle } from "@/lib/chartSeries";
 import { cn } from "@/lib/utils";
 import { TestName } from "./TestName";
 import { TestStatus } from "./TestStatus";
@@ -168,8 +169,10 @@ export interface Case {
  * @property {string} [x_label] - X-axis label
  * @property {string} [y_label] - Y-axis label
  * @property {string[]} marker_name - Array of series names
- * @property {number[][]} x_data - 2D array of x-axis data points
- * @property {number[][]} y_data - 2D array of y-axis data points
+ * @property {(number | null)[][]} x_data - 2D array of x-axis data points, null for a gap
+ * @property {(number | null)[][]} y_data - 2D array of y-axis data points, null for a gap
+ * @property {(SeriesStyle | null)[]} [series_style] - How each series is drawn
+ * @property {boolean} [equal_aspect] - Draw one unit of X as long as one unit of Y
  */
 interface ChartData {
   type: string;
@@ -177,8 +180,10 @@ interface ChartData {
   x_label?: string;
   y_label?: string;
   marker_name: string[];
-  x_data: number[][];
-  y_data: number[][];
+  x_data: (number | null)[][];
+  y_data: (number | null)[][];
+  series_style?: (SeriesStyle | null)[];
+  equal_aspect?: boolean;
 }
 
 /**

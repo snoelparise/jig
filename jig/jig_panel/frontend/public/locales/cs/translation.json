@@ -108,7 +108,15 @@
     "notificationDesc": "Okno bylo uzavřeno. Testy byly zastaveny.",
     "numericInputError": "Zadejte prosím číslo",
     "radioButtonError": "Vyberte prosím jednu možnost",
-    "checkboxError": "Vyberte prosím alespoň jednu možnost"
+    "checkboxError": "Vyberte prosím alespoň jednu možnost",
+    "form": {
+      "required": "Toto pole je povinné",
+      "notANumber": "Zadejte číslo",
+      "belowMinimum": "Musí být alespoň {{minimum}}",
+      "aboveMaximum": "Musí být nejvýše {{maximum}}",
+      "optional": "(nepovinné)",
+      "noChoice": "— vyberte —"
+    }
   },
   "suiteList": {
     "loadingTests": "Načítání testů... 🤔",

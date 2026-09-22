@@ -10,6 +10,13 @@ import { withTranslation, WithTranslation } from "react-i18next";
 
 import _ from "lodash";
 
+import {
+  equalAspectAxis,
+  toPlotlyTrace,
+  type ChartSeries,
+  type SeriesStyle,
+} from "@/lib/chartSeries";
+
 interface Measurement {
   name?: string;
   result?: boolean;
@@ -30,8 +37,10 @@ interface Measurement {
  * @property {string} [x_label] - Optional label for x-axis
  * @property {string} [y_label] - Optional label for y-axis
  * @property {string[]} marker_name - Array of names/labels for each data series
- * @property {number[][]} x_data - 2D array of x-axis data points for each series
- * @property {number[][]} y_data - 2D array of y-axis data points for each series
+ * @property {(number | null)[][]} x_data - 2D array of x-axis data points for each series, null for a gap
+ * @property {(number | null)[][]} y_data - 2D array of y-axis data points for each series, null for a gap
+ * @property {(SeriesStyle | null)[]} [series_style] - How each series is drawn, empty when all use the defaults
+ * @property {boolean} [equal_aspect] - Draw one unit of X as long as one unit of Y
  * @property {string} [chart_title] - Optional title for the chart
  * @property {string[]} [x_label_data] - Optional array of x-axis labels for each series
  * @property {string[]} [y_label_data] - Optional array of y-axis labels for each series
@@ -42,8 +51,10 @@ interface ChartData {
   x_label?: string;
   y_label?: string;
   marker_name: string[];
-  x_data: number[][];
-  y_data: number[][];
+  x_data: (number | null)[][];
+  y_data: (number | null)[][];
+  series_style?: (SeriesStyle | null)[];
+  equal_aspect?: boolean;
   chart_title?: string;
   x_label_data?: string[];
   y_label_data?: string[];
@@ -52,17 +63,15 @@ interface ChartData {
 /**
  * Interface representing individual chart series data
  * @interface ChartSeriesData
- * @property {number[]} x_data - Array of x-axis data points for the series
- * @property {number[]} y_data - Array of y-axis data points for the series
+ * @property {(number | null)[]} x_data - Array of x-axis data points for the series
+ * @property {(number | null)[]} y_data - Array of y-axis data points for the series
  * @property {string} marker_name - Name/label for the data series
+ * @property {SeriesStyle | null} [style] - How the series is drawn
  * @property {string} [x_label] - Optional label for x-axis of this series
  * @property {string} [y_label] - Optional label for y-axis of this series
  * @property {string} [chart_title] - Optional title for the chart
  */
-interface ChartSeriesData {
-  x_data: number[];
-  y_data: number[];
-  marker_name: string;
+interface ChartSeriesData extends ChartSeries {
   x_label?: string;
   y_label?: string;
   chart_title?: string;
@@ -101,6 +110,9 @@ const MODAL_CONSTANTS = {
   SIZE_RATIO: 0.9,
   MARGIN_TOP: 10,
   MIN_WIDTH: 200,
+  MARKER_SIZE: 8,
+  MARKER_LINE_WIDTH: 1,
+  LINE_WIDTH: 2,
 } as const;
 
 /**
@@ -432,11 +444,14 @@ export function TestData(props: Readonly<Props>): React.ReactElement {
       x_data: props.chart!.x_data[index] || [],
       y_data: props.chart!.y_data[index] || [],
       marker_name: name || t("chart.series", { number: index + 1 }),
+      style: props.chart?.series_style?.[index] ?? null,
       x_label: props.chart?.x_label_data?.[index] || props.chart?.x_label,
       y_label: props.chart?.y_label_data?.[index] || props.chart?.y_label,
       chart_title: props.chart?.chart_title || props.chart?.title,
     }));
   }, [props.chart, t]);
+
+  const equalAspect: boolean = props.chart?.equal_aspect === true;
 
   /**
    * Flag indicating whether chart data is available for rendering
@@ -448,16 +463,16 @@ export function TestData(props: Readonly<Props>): React.ReactElement {
    * Plotly-compatible data format for fullscreen modal chart
    * @type {Array<Object>}
    */
-  const plotData: Array<object> = chartSeriesData.map((chart, index) => ({
-    x: chart.x_data,
-    y: chart.y_data,
-    type: "scatter",
-    mode: "lines+markers",
-    name: chart.marker_name,
-    marker: {
+  const plotData: Array<object> = chartSeriesData.map((chart, index) =>
+    toPlotlyTrace(chart, {
       color: `hsl(${(index * 360) / chartSeriesData.length}, 70%, 50%)`,
-    },
-  }));
+      markerLineColor: `hsl(${(index * 360) / chartSeriesData.length}, 70%, 30%)`,
+      symbol: "circle",
+      markerSize: MODAL_CONSTANTS.MARKER_SIZE,
+      markerLineWidth: MODAL_CONSTANTS.MARKER_LINE_WIDTH,
+      lineWidth: MODAL_CONSTANTS.LINE_WIDTH,
+    }),
+  );
 
   /**
    * Layout configuration for fullscreen modal chart
@@ -473,6 +488,7 @@ export function TestData(props: Readonly<Props>): React.ReactElement {
     },
     yaxis: {
       title: props.chart?.y_label || undefined,
+      ...equalAspectAxis(equalAspect),
     },
     showlegend: true,
     autosize: true,
@@ -557,6 +573,7 @@ export function TestData(props: Readonly<Props>): React.ReactElement {
               yLabel={props.chart?.y_label}
               chartType={props.chart?.type}
               containerWidth={props.dataColumnWidth}
+              equalAspect={equalAspect}
             />
           </div>
 

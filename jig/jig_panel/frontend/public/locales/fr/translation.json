@@ -108,7 +108,15 @@
     "notificationDesc": "La fenêtre a été fermée. Tests arrêtés.",
     "numericInputError": "Veuillez entrer un nombre",
     "radioButtonError": "Veuillez sélectionner une option",
-    "checkboxError": "Veuillez sélectionner au moins une option"
+    "checkboxError": "Veuillez sélectionner au moins une option",
+    "form": {
+      "required": "Ce champ est obligatoire",
+      "notANumber": "Entrez un nombre",
+      "belowMinimum": "Doit être au moins {{minimum}}",
+      "aboveMaximum": "Doit être au plus {{maximum}}",
+      "optional": "(facultatif)",
+      "noChoice": "— choisir —"
+    }
   },
   "suiteList": {
     "loadingTests": "Chargement des tests... 🤔",

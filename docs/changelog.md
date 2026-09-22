@@ -4,6 +4,31 @@ Versions follow [Semantic Versioning](https://semver.org/): `<major>.<minor>.<pa
 
 ## Unreleased
 
+* Add the **form** dialog widget: `FormWidget` shows several fields in one
+  dialog, each prefilled with its default, and `run_dialog_box` returns one
+  dictionary with every value converted by its field. Fields are
+  `NumberField` (unit, minimum, maximum), `TextField`, `ChoiceField`
+  (drop-down) and `BooleanField` (checkbox). The panel validates each field
+  as the operator types and shows the error under the field concerned; the
+  Python field applies the same rules when it converts the answer, and a
+  value it refuses raises `FormAnswerError`. Until now a test needing three
+  settings had to open three dialogs in a row, and the operator could not
+  leave a field empty to keep a default: the panel refused an empty input.
+* Add per-series styling to charts: `Chart.add_series(..., style=SeriesStyle(...))`
+  chooses the mode (`SeriesMode`: lines, markers or both), colour, marker
+  symbol and size (`MarkerSymbol`), line dash and width (`LineDash`),
+  opacity and legend visibility, a hover text per point, and a value per
+  point drawn with a colour scale and a titled colour bar (`color_values`,
+  `colorbar_title`). A series without a style is drawn exactly as before.
+* Allow `None` inside a chart series: the line breaks there, so one series
+  can hold several disjoint segments (a field of displacement vectors, for
+  instance) with a single legend entry.
+* Add `Chart.equal_aspect`: one unit of X is drawn as long as one unit of Y,
+  for charts of positions on a surface rather than of a quantity over another.
+* Widgets serialise through `IWidget.to_dict()` and charts through
+  `Chart.to_dict()`, so a widget may keep attributes that do not reach the
+  run document, and a chart with styles is stored as plain JSON.
+
 ## 1.0.2
 
 * Commit the operator panel's `yarn.lock` in the Yarn 4 format. It was still a
