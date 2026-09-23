@@ -7,10 +7,19 @@ import Plot from "react-plotly.js";
 import { withTranslation, WithTranslation } from "react-i18next";
 
 import {
+  TITLE_PADDING,
+  frameChart,
+  textMeasurer,
+  type ChartFrame,
+} from "@/lib/chartLayout";
+import {
   equalAspectAxis,
   toPlotlyTrace,
   type ChartSeries,
 } from "@/lib/chartSeries";
+
+/** Header and padding of the fullscreen dialog around its chart, in pixels. */
+const MODAL_CHROME_HEIGHT = 70;
 
 /**
  * Interface representing chart data structure
@@ -56,17 +65,14 @@ interface ChartComponentProps extends WithTranslation {
 }
 
 /**
- * Constants for chart configuration and styling
+ * Constants for chart configuration and styling. Sizes and margins come from
+ * `chartLayout`, which frames a chart from its width and its data.
  * @constant
- * @property {number} MIN_WIDTH - Minimum width of the chart in pixels
- * @property {number} MIN_HEIGHT - Minimum height of the chart in pixels
- * @property {number} ASPECT_RATIO - Width to height ratio for responsive sizing
  * @property {number} COLLAPSED_MIN_WIDTH - Minimum width when chart is collapsed
  * @property {number} COLLAPSED_MIN_HEIGHT - Minimum height when chart is collapsed
  * @property {number} BORDER_RADIUS - Border radius for chart container
  * @property {number} PADDING - Internal padding for chart container
- * @property {Object} MARGIN - Plotly chart margin configuration
- * @property {number} WIDTH_OFFSET - Offset to account for container padding/borders
+ * @property {Object} MARGIN - Plotly chart margin padding
  * @property {number} MODAL_SIZE - Size ratio for fullscreen modal (0-1)
  * @property {Object} MARKER - Marker styling configuration
  * @property {number} LINE_WIDTH - Line width for chart series
@@ -75,21 +81,13 @@ interface ChartComponentProps extends WithTranslation {
  * @property {Object} Z_INDEX - Z-index values for layered elements
  */
 const CHART_CONSTANTS = {
-  MIN_WIDTH: 250,
-  MIN_HEIGHT: 300,
-  ASPECT_RATIO: 0.5,
   COLLAPSED_MIN_WIDTH: 150,
   COLLAPSED_MIN_HEIGHT: 200,
   BORDER_RADIUS: 3,
   PADDING: 10,
   MARGIN: {
-    LEFT: 60,
-    RIGHT: 30,
-    BOTTOM: 60,
-    TOP: 60,
     PAD: 4,
   },
-  WIDTH_OFFSET: 60,
   MODAL_SIZE: 0.9,
   MARKER: {
     SIZE: 8,
@@ -164,37 +162,31 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [measuredWidth, setMeasuredWidth] = useState(0);
 
   /**
-   * Effect hook to handle responsive chart sizing
-   * Updates dimensions on mount, container width changes, and window resize
+   * Follows the width of the chart's own container, so the plot fills the
+   * column it is in whatever the table measured for it, and keeps up when
+   * the column is resized or a section is unfolded.
    */
   useEffect(() => {
-    const updateDimensions = () => {
-      let width = 0;
+    const element = containerRef.current;
+    if (!element) {
+      return undefined;
+    }
+    const measure = () => setMeasuredWidth(element.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isCollapsed]);
 
-      if (containerWidth && containerWidth > 0) {
-        width = containerWidth - CHART_CONSTANTS.WIDTH_OFFSET;
-      } else if (containerRef.current) {
-        const currentWidth = containerRef.current.offsetWidth;
-        width = currentWidth - CHART_CONSTANTS.WIDTH_OFFSET;
-      }
-
-      const finalWidth = Math.max(CHART_CONSTANTS.MIN_WIDTH, width);
-      const finalHeight = Math.max(
-        CHART_CONSTANTS.MIN_HEIGHT,
-        finalWidth * CHART_CONSTANTS.ASPECT_RATIO
-      );
-
-      setDimensions({ width: finalWidth, height: finalHeight });
-    };
-
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-
-    return () => window.removeEventListener("resize", updateDimensions);
-  }, [containerWidth]);
+  const availableWidth =
+    (measuredWidth || containerWidth || 0) - 2 * CHART_CONSTANTS.PADDING;
 
   /**
    * Determines the axis type based on chart type configuration
@@ -239,117 +231,105 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
     }),
   );
 
+  const legendNames = charts.map((chart) => chart.marker_name);
+
   /**
-   * Layout configuration for the main chart
-   * @type {Object}
+   * Lays the chart out in the frame that fits its data at a given size: the
+   * title wrapped and given room, the legend under the axes in room of its
+   * own, the height following the data on equal axes.
+   * @param {ChartFrame} frame - The frame to lay out in.
+   * @param {number} titleFontSize - Title font size, in pixels.
+   * @param {number} axisFontSize - Axis title font size, in pixels.
+   * @returns {Record<string, unknown>} A Plotly layout.
    */
-  const layout = {
-    width: dimensions.width,
-    height: CHART_CONSTANTS.MIN_HEIGHT,
-    title: chartTitle
+  const layoutIn = (
+    frame: ChartFrame,
+    titleFontSize: number,
+    axisFontSize: number,
+  ): Record<string, unknown> => ({
+    width: frame.width,
+    height: frame.height,
+    title: frame.title
       ? {
-          text: chartTitle,
+          text: frame.title,
           x: 0.5,
           xanchor: "center",
-          font: {
-            size: CHART_CONSTANTS.FONT_SIZES.TITLE,
-            weight: "bold",
-          },
+          y: 1,
+          yanchor: "top",
+          yref: "container",
+          pad: { t: TITLE_PADDING },
+          font: { size: titleFontSize, weight: "bold" },
         }
       : undefined,
     xaxis: {
       title: xAxisLabel
-        ? {
-            text: xAxisLabel,
-            font: {
-              size: CHART_CONSTANTS.FONT_SIZES.AXIS,
-              weight: "bold",
-            },
-          }
+        ? { text: xAxisLabel, font: { size: axisFontSize, weight: "bold" } }
         : undefined,
       type: getAxisType("x"),
       showgrid: true,
       gridcolor: CHART_CONSTANTS.COLORS.GRID,
       zeroline: false,
+      automargin: true,
     },
     yaxis: {
       title: yAxisLabel
-        ? {
-            text: yAxisLabel,
-            font: {
-              size: CHART_CONSTANTS.FONT_SIZES.AXIS,
-              weight: "bold",
-            },
-          }
+        ? { text: yAxisLabel, font: { size: axisFontSize, weight: "bold" } }
         : undefined,
       type: getAxisType("y"),
       showgrid: true,
       gridcolor: CHART_CONSTANTS.COLORS.GRID,
       zeroline: false,
+      automargin: true,
       ...equalAspectAxis(equalAspect),
     },
     showlegend: true,
     legend: {
-      x: 1,
-      y: 1,
-      xanchor: "right",
+      orientation: "h",
+      x: 0,
+      xanchor: "left",
+      y: frame.legendY,
       yanchor: "top",
       bgcolor: CHART_CONSTANTS.COLORS.LEGEND_BACKGROUND,
       bordercolor: CHART_CONSTANTS.COLORS.LEGEND_BORDER,
       borderwidth: 1,
     },
-    autosize: true,
-    margin: {
-      l: CHART_CONSTANTS.MARGIN.LEFT,
-      r: CHART_CONSTANTS.MARGIN.RIGHT,
-      b: CHART_CONSTANTS.MARGIN.BOTTOM,
-      t: CHART_CONSTANTS.MARGIN.TOP,
-      pad: CHART_CONSTANTS.MARGIN.PAD,
-    },
+    margin: { ...frame.margin, pad: CHART_CONSTANTS.MARGIN.PAD },
     hovermode: "closest",
     plot_bgcolor: CHART_CONSTANTS.COLORS.BACKGROUND,
     paper_bgcolor: CHART_CONSTANTS.COLORS.PAPER,
-  };
+  });
 
-  /**
-   * Layout configuration for fullscreen modal chart
-   * @type {Object}
-   */
-  const fullScreenLayout = {
-    ...layout,
-    width: window.innerWidth * CHART_CONSTANTS.MODAL_SIZE,
-    height: window.innerHeight * CHART_CONSTANTS.MODAL_SIZE,
-    title: chartTitle
-      ? {
-          ...layout.title,
-          font: {
-            size: CHART_CONSTANTS.FONT_SIZES.MODAL_TITLE,
-          },
-        }
-      : undefined,
-    xaxis: {
-      ...layout.xaxis,
-      title: xAxisLabel
-        ? {
-            ...layout.xaxis?.title,
-            font: {
-              size: CHART_CONSTANTS.FONT_SIZES.MODAL_AXIS,
-            },
-          }
-        : undefined,
-    },
-    yaxis: {
-      ...layout.yaxis,
-      title: yAxisLabel
-        ? {
-            ...layout.yaxis?.title,
-            font: {
-              size: CHART_CONSTANTS.FONT_SIZES.MODAL_AXIS,
-            },
-          }
-        : undefined,
-    },
-  };
+  const layout = layoutIn(
+    frameChart({
+      width: availableWidth,
+      equalAspect,
+      series: charts,
+      title: chartTitle,
+      legendNames,
+      titleFontSize: CHART_CONSTANTS.FONT_SIZES.TITLE,
+      legendFontSize: CHART_CONSTANTS.FONT_SIZES.AXIS,
+      measure: textMeasurer(CHART_CONSTANTS.FONT_SIZES.TITLE),
+    }),
+    CHART_CONSTANTS.FONT_SIZES.TITLE,
+    CHART_CONSTANTS.FONT_SIZES.AXIS,
+  );
+
+  const fullScreenLayout = layoutIn(
+    frameChart({
+      width: window.innerWidth * CHART_CONSTANTS.MODAL_SIZE - 2 * CHART_CONSTANTS.PADDING,
+      height:
+        window.innerHeight * CHART_CONSTANTS.MODAL_SIZE - MODAL_CHROME_HEIGHT,
+      equalAspect,
+      series: charts,
+      title: chartTitle,
+      legendNames,
+      titleFontSize: CHART_CONSTANTS.FONT_SIZES.MODAL_TITLE,
+      legendFontSize: CHART_CONSTANTS.FONT_SIZES.MODAL_AXIS,
+      measure: textMeasurer(CHART_CONSTANTS.FONT_SIZES.MODAL_TITLE),
+    }),
+    CHART_CONSTANTS.FONT_SIZES.MODAL_TITLE,
+    CHART_CONSTANTS.FONT_SIZES.MODAL_AXIS,
+  );
 
   // Render collapsed state if isCollapsed is true
   if (isCollapsed) {
@@ -446,12 +426,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
         >
           <Plot
             data={plotData}
-            layout={{
-              ...fullScreenLayout,
-              width: undefined,
-              height: undefined,
-              autosize: true,
-            }}
+            layout={fullScreenLayout}
             config={{
               displayModeBar: true,
               displaylogo: false,
@@ -464,12 +439,7 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
                 "autoScale2d",
               ],
             }}
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "block",
-            }}
-            useResizeHandler={true}
+            style={{ display: "block", margin: "0 auto" }}
           />
         </div>
       </Dialog>

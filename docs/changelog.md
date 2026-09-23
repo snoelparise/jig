@@ -28,6 +28,15 @@ Versions follow [Semantic Versioning](https://semver.org/): `<major>.<minor>.<pa
 * Widgets serialise through `IWidget.to_dict()` and charts through
   `Chart.to_dict()`, so a widget may keep attributes that do not reach the
   run document, and a chart with styles is stored as plain JSON.
+* Lay a chart out from the width it has and the data it shows. The plot was
+  sized from a width the table measured for its data column, stale or zero
+  when the chart mounted and then floored to 250 px, at a fixed height of
+  300 px, with the legend drawn over the plot area and the title clipped: a
+  map of the screen came out as a small square under its legend. The chart
+  now follows its own container's width, a chart on equal axes takes the
+  height of its data, the legend sits under the axes in room of its own, and
+  a long title wraps to the width. The fullscreen view is framed the same way
+  at the size of the dialog.
 
 ## 1.0.2
 

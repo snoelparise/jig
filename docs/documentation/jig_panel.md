@@ -470,6 +470,11 @@ Charts support the following features:
 A series without a style is drawn as before: a line with markers, coloured and
 shaped by its position in the chart.
 
+A chart fills the width of the column it is in. A chart on equal axes takes
+the height of its data at that width, so a map of a screen is drawn as a
+screen. The legend sits under the axes, in room of its own, and a long title
+wraps to the width rather than being clipped.
+
 #### Basic line chart
 
 Displays a single dataset as a line chart with customizable styling.
